@@ -154,10 +154,12 @@
   </div>
 
   <script>
-    const BASE_ACCESSORIES_INCLUDED = 50;
-    const BASE_PROTECT_INCLUDED = 12;
-    const PROTECT_PRICE = 12;
-    const FEE = 25;
+  const BASE_ACCESSORIES_INCLUDED = 50;
+const BASE_PROTECT_INCLUDED = 12;
+const PROTECT_PRICE = 12;
+
+const FEE = 25;
+const BASE_FEE_INCLUDED = 25; // <-- sheet prices already include the $25
 
     const PRICES = {
       "iPhone 13": { reg: 629.99, switcher:{Supreme:147.99, Smart:236.99, Select:226.99, Sensible:216.99}, new:{Supreme:200.99, Smart:286.99, Select:276.99, Sensible:266.99}, upgradeTotal:720.99 },
@@ -269,13 +271,15 @@
         rows.push(["Protect (adjust)", money(protectDelta)]);
       }
 
-      // Activation/Upgrade fee applies to ALL txn types
-      if (elFee.checked){
-        total += FEE;
-        rows.push(["Activation/Upgrade fee", money(FEE)]);
-      } else {
-        rows.push(["Activation/Upgrade fee", "$0.00"]);
-      }
+  // Fee is already INCLUDED in the sheet prices.
+// Checkbox means "fee charged" (default ON). If unchecked, we REMOVE it.
+const feeDelta = (elFee.checked ? FEE : 0) - BASE_FEE_INCLUDED;
+total += feeDelta;
+
+rows.push([
+  "Activation/Upgrade fee (adjust)",
+  money(feeDelta) + (elFee.checked ? " (charged)" : " (waived)")
+]);
 
       elTotal.textContent = money(total);
       elSubtitle.textContent = (txn === 'full')
