@@ -34,6 +34,8 @@
       display:flex; align-items: baseline; justify-content: space-between;
       gap: 14px; padding: 14px; border-radius: 14px;
       border: 1px solid #dfe3f2; background: #f7f9ff;
+      flex-wrap: wrap;
+      overflow-x: hidden;
     }
     .totalBox .big { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
     .muted{ color:#666; font-size: 12px; }
@@ -48,8 +50,11 @@
     }
     .btn.secondary{ background:#eef1fb; color:#111; border:1px solid #d7dbe7; }
     @media (max-width: 720px){
-      .col-6,.col-4{ grid-column: span 12; }
-    }
+  .col-6,.col-4{ grid-column: span 12; }
+  .totalBox{ flex-direction: column; align-items: stretch; }
+  .totalBox > div{ width: 100%; }
+  .totalBox table{ width: 100%; }
+}
   </style>
 </head>
 
@@ -134,7 +139,7 @@
           <div class="big" id="total">$0.00</div>
           <div class="muted" id="subtitle"></div>
         </div>
-        <div style="min-width: 280px;">
+        <div style="width:100%;">
           <table id="breakdown"></table>
         </div>
       </div>
