@@ -237,6 +237,313 @@
     elPlanWrap.style.display = (txn === 'full') ? 'none' : '';
 
     // show Upgrade Fee only for Upgrade (you can change this if you want it for all)
+    elUpgradeFeeWrap.style.display = 'inline-flex';
+
+    // show custom accessories input
+    elCustomAccWrap.style.display = (elAcc.value === 'custom') ? '' : 'none';
+
+    const dev = elDevice.value;
+    const { base, label } = getBase();
+
+    const accessories = getAccessoriesAmount();
+    const protectOn = elProtect.checked;
+
+    // NOTE:
+    // For bundle totals (switcher/new/upgrade), we assume the sheet base includes $50 accessories + $12 protect.
+    // For full price, we assume base is just reg price (no included accessories/protect).
+    let total = base;
+
+    const rows = [];
+
+    rows.push(["Device", dev]);
+    rows.push(["Transaction base", `${label}: ${money(base)}`]);
+
+    if (txn === 'full') {
+      // add accessories + protect on top
+      total += accessories;
+      rows.push(["Accessories", money(accessories)]);
+      if (protectOn){
+        total += PROTECT_PRICE;
+        rows.push(["Protect", money(PROTECT_PRICE)]);
+      } else {
+        rows.push(["Protect", "$0.00"]);
+      }
+    } else {
+      // adjust from included bundle parts
+      const accDelta = accessories - BASE_ACCESSORIES_INCLUDED;
+      total += accDelta;
+      rows.push(["Accessories (adjust)", money(accDelta)]);
+
+      const protectDelta = (protectOn ? PROTECT_PRICE : 0) - BASE_PROTECT_INCLUDED;
+      total += protectDelta;
+      rows.push(["Protect (adjust)", money(protectDelta)]);
+    }
+
+    if (txn === 'upgrade' && elUpgradeFee.checked){
+      total += UPGRADE_FEE;
+      rows.push(["Upgrade fee", money(UPGRADE_FEE)]);
+    }
+
+    // Render
+    elTotal.textContent = money(total);
+    elSubtitle.textContent = (txn === 'full')
+      ? "Full price = Reg price + selected add-ons"
+      : "Bundle base adjusted by your accessories/protect choices";
+
+    elBreakdown.innerHTML = rows.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+
+    // note area
+    elNote.textContent = (txn !== 'full')
+      ? "Reminder: bundle base assumes $50 accessories + $12 Protect already included in the sheet totals."
+      : "";
+  }
+
+  function init(){
+    // populate devices
+    Object.keys(PRICES).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      elDevice.appendChild(opt);
+    });
+    elDevice.value = Object.keys(PRICES)[0];
+
+    // event listeners
+    [elTxn, elPlan, elDevice, elAcc, elCustomAcc, elProtect, elUpgradeFee].forEach(el => {
+      el.addEventListener('change', recompute);
+      el.addEventListener('input', recompute);
+    });
+
+    elCopyBtn.addEventListener('click', async () => {
+      const text = [
+        `Reemo Bundle Calculator`,
+        `Transaction: ${elTxn.options[elTxn.selectedIndex].text}`,
+        ...(elPlanWrap.style.display === 'none' ? [] : [`Plan: ${elPlan.value}`]),
+        `Device: ${elDevice.value}`,
+        `Accessories: $${getAccessoriesAmount().toFixed(2)}`,
+        `Protect: ${elProtect.checked ? '$12.00' : '$0.00'}`,
+        ...(elTxn.value === 'upgrade' ? [`Upgrade Fee: ${elUpgradeFee.checked ? '$25.00' : '$0.00'}`] : []),
+        `TOTAL: ${elTotal.textContent}`
+      ].join("\n");
+
+      try{
+        await navigator.clipboard.writeText(text);
+        elCopyBtn.textContent = "Copied!";
+        setTimeout(() => elCopyBtn.textContent = "Copy breakdown", 1200);
+      } catch(e){
+        alert("Copy failed on this device/browser. You can manually select and copy the totals.");
+      }
+    });
+
+    recompute();
+  }
+
+  init();
+</script>
+</body>
+</html>    }
+    .totalBox .big { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+    .muted{ color:#666; font-size: 12px; }
+    .warn { color:#9a6b00; font-size: 12px; }
+    details { margin-top: 10px; }
+    table{ width:100%; border-collapse: collapse; font-size: 13px; }
+    td{ padding: 6px 0; border-bottom: 1px dashed #e6e8ef; }
+    td:last-child{ text-align:right; font-variant-numeric: tabular-nums; }
+    .btn {
+      cursor:pointer; border:none; border-radius: 10px; padding: 10px 12px;
+      background:#111; color:#fff; font-weight: 700;
+    }
+    .btn.secondary{ background:#eef1fb; color:#111; border:1px solid #d7dbe7; }
+    @media (max-width: 720px){
+      .col-6,.col-4,.col-3{ grid-column: span 12; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Reemo Bundle Calculator</h1>
+      <div class="muted">
+        Uses your bundle sheet totals as the base (includes **$50 accessories** + **$12 Protect** in the base price for bundle columns).
+        You can change accessories/protect below and it will adjust.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="col-4">
+          <label>Transaction Type</label>
+          <select id="txn">
+            <option value="switcher">Port / Switcher</option>
+            <option value="new">New Number</option>
+            <option value="upgrade">Upgrade</option>
+            <option value="full">Full Price (Reg)</option>
+          </select>
+        </div>
+
+        <div class="col-4" id="planWrap">
+          <label>Plan Tier</label>
+          <select id="plan">
+            <option value="Supreme">Supreme</option>
+            <option value="Smart">Smart</option>
+            <option value="Select">Select</option>
+            <option value="Sensible">Sensible</option>
+          </select>
+        </div>
+
+        <div class="col-4">
+          <label>Device</label>
+          <select id="device"></select>
+        </div>
+
+        <div class="col-6">
+          <label>Accessories</label>
+          <select id="acc">
+            <option value="50">Case + Screen + Block ($50)</option>
+            <option value="40">Case + Screen ($40)</option>
+            <option value="30">Case ($30)</option>
+            <option value="20_screen">Screen ($20)</option>
+            <option value="20_block">Block ($20)</option>
+            <option value="custom">Custom amount…</option>
+            <option value="0">No accessories ($0)</option>
+          </select>
+        </div>
+
+        <div class="col-6" id="customAccWrap" style="display:none;">
+          <label>Custom Accessories Amount ($)</label>
+          <input id="customAcc" type="number" min="0" step="0.01" value="0" />
+        </div>
+
+        <div class="col-12">
+          <div class="row">
+            <label class="pill">
+              <input type="checkbox" id="protect" checked />
+              Protect ($12)
+            </label>
+
+            <label class="pill" id="upgradeFeeWrap">
+              <input type="checkbox" id="upgradeFee" checked />
+              Upgrade Fee ($25)
+            </label>
+
+            <button class="btn secondary" id="copyBtn" type="button">Copy breakdown</button>
+          </div>
+          <div class="warn" id="note"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="totalBox">
+        <div>
+          <div class="muted">Estimated total</div>
+          <div class="big" id="total">$0.00</div>
+          <div class="muted" id="subtitle"></div>
+        </div>
+        <div style="min-width: 280px;">
+          <table id="breakdown"></table>
+        </div>
+      </div>
+
+      <details>
+        <summary class="muted">Data note</summary>
+        <div class="muted">
+          Bundle base prices below come from your uploaded pricing sheet.
+          Base bundle columns appear to include **$50 accessories + $12 Protect** already.
+          This tool adjusts up/down based on your selections.
+        </div>
+      </details>
+    </div>
+  </div>
+
+<script>
+  // ---- CONFIG ----
+  const BASE_ACCESSORIES_INCLUDED = 50; // bundle sheet includes $50 (case+screen+block)
+  const BASE_PROTECT_INCLUDED = 12;     // bundle sheet includes $12 protect
+  const PROTECT_PRICE = 12;
+  const UPGRADE_FEE = 25;
+
+  // Prices pulled from your bundle sheet PDF (page 1).
+  // Structure:
+  // device: { reg, switcher: {Supreme,Smart,Select,Sensible}, new: {...}, upgradeTotal }
+  const PRICES = {
+    "iPhone 13": { reg: 629.99, switcher:{Supreme:147.99, Smart:236.99, Select:226.99, Sensible:216.99}, new:{Supreme:200.99, Smart:286.99, Select:276.99, Sensible:266.99}, upgradeTotal:720.99 },
+    "iPhone 15": { reg: 629.99, switcher:{Supreme:776.99, Smart:766.99, Select:756.99, Sensible:746.99}, new:{Supreme:776.99, Smart:766.99, Select:756.99, Sensible:746.99}, upgradeTotal:716.99 },
+    "iPhone 16": { reg: 729.99, switcher:{Supreme:876.99, Smart:866.99, Select:856.99, Sensible:846.99}, new:{Supreme:876.99, Smart:866.99, Select:856.99, Sensible:846.99}, upgradeTotal:816.99 },
+    "iPhone 16 Plus": { reg: 829.99, switcher:{Supreme:976.99, Smart:966.99, Select:956.99, Sensible:946.99}, new:{Supreme:976.99, Smart:966.99, Select:956.99, Sensible:946.99}, upgradeTotal:916.99 },
+    "iPhone 16e": { reg: 599.99, switcher:{Supreme:200.99, Smart:336.99, Select:326.99, Sensible:316.99}, new:{Supreme:346.99, Smart:436.99, Select:426.99, Sensible:416.99}, upgradeTotal:686.99 },
+    "iPhone 17": { reg: 829.99, switcher:{Supreme:976.99, Smart:966.99, Select:956.99, Sensible:946.99}, new:{Supreme:976.99, Smart:966.99, Select:956.99, Sensible:946.99}, upgradeTotal:916.99 },
+    "iPhone Air": { reg: 999.99, switcher:{Supreme:1146.99, Smart:1136.99, Select:1126.99, Sensible:1116.99}, new:{Supreme:1146.99, Smart:1136.99, Select:1126.99, Sensible:1116.99}, upgradeTotal:1086.99 },
+    "iPhone 17 Pro": { reg: 1099.99, switcher:{Supreme:1246.99, Smart:1236.99, Select:1226.99, Sensible:1216.99}, new:{Supreme:1246.99, Smart:1236.99, Select:1226.99, Sensible:1216.99}, upgradeTotal:1186.99 },
+    "iPhone 17 Pro Max": { reg: 1199.99, switcher:{Supreme:1346.99, Smart:1362.99, Select:1378.99, Sensible:1394.99}, new:{Supreme:1346.99, Smart:1362.99, Select:1378.99, Sensible:1394.99}, upgradeTotal:1286.99 },
+
+    "Samsung Galaxy A16": { reg: 159.99, switcher:{Supreme:150.99, Smart:140.99, Select:216.99, Sensible:206.99}, new:{Supreme:150.99, Smart:226.99, Select:216.99, Sensible:206.99}, upgradeTotal:176.99 },
+    "Samsung Galaxy A17": { reg: 179.99, switcher:{Supreme:176.99, Smart:236.99, Select:226.99, Sensible:216.99}, new:{Supreme:246.99, Smart:246.99, Select:236.99, Sensible:226.99}, upgradeTotal:196.99 },
+    "Samsung Galaxy A36": { reg: 359.99, switcher:{Supreme:196.99, Smart:266.99, Select:256.99, Sensible:246.99}, new:{Supreme:246.99, Smart:266.99, Select:256.99, Sensible:246.99}, upgradeTotal:286.99 },
+    "Samsung Galaxy S25 FE": { reg: 649.99, switcher:{Supreme:296.99, Smart:536.99, Select:526.99, Sensible:516.99}, new:{Supreme:296.99, Smart:536.99, Select:526.99, Sensible:516.99}, upgradeTotal:736.99 },
+    "Samsung Galaxy S25": { reg: 799.99, switcher:{Supreme:510.99, Smart:636.99, Select:626.99, Sensible:616.99}, new:{Supreme:510.99, Smart:636.99, Select:626.99, Sensible:616.99}, upgradeTotal:886.99 },
+
+    "moto g play - 2026": { reg: 119.99, switcher:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, new:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, upgradeTotal:206.99 },
+    "moto g - 2026": { reg: 149.99, switcher:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, new:{Supreme:150.99, Smart:166.99, Select:156.99, Sensible:146.99}, upgradeTotal:166.99 },
+    "moto g power - 2026": { reg: 189.99, switcher:{Supreme:156.99, Smart:146.99, Select:176.99, Sensible:166.99}, new:{Supreme:156.99, Smart:186.99, Select:176.99, Sensible:166.99}, upgradeTotal:276.99 },
+    "moto g - 2025": { reg: 139.99, switcher:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, new:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, upgradeTotal:166.99 },
+    "moto g power - 2025": { reg: 169.99, switcher:{Supreme:150.99, Smart:140.99, Select:176.99, Sensible:166.99}, new:{Supreme:150.99, Smart:187.99, Select:177.99, Sensible:167.99}, upgradeTotal:256.99 },
+    "moto g stylus - 2025": { reg: 239.99, switcher:{Supreme:150.99, Smart:206.99, Select:196.99, Sensible:186.99}, new:{Supreme:176.99, Smart:206.99, Select:196.99, Sensible:186.99}, upgradeTotal:326.99 },
+    "motorola edge - 2025": { reg: 359.99, switcher:{Supreme:176.99, Smart:266.99, Select:256.99, Sensible:246.99}, new:{Supreme:206.99, Smart:266.99, Select:256.99, Sensible:246.99}, upgradeTotal:446.99 },
+    "motorola razr – 2025": { reg: 599.00, switcher:{Supreme:346.99, Smart:536.99, Select:526.99, Sensible:516.99}, new:{Supreme:346.99, Smart:536.99, Select:526.99, Sensible:516.99}, upgradeTotal:686.00 },
+
+    "Cricket Icon - 2026": { reg: 104.99, switcher:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, new:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, upgradeTotal:191.99 },
+    "Cricket Icon Plus - 2026": { reg: 109.99, switcher:{Supreme:150.99, Smart:140.99, Select:156.99, Sensible:146.99}, new:{Supreme:150.99, Smart:150.99, Select:156.99, Sensible:146.99}, upgradeTotal:196.99 },
+    "Cricket Icon Pro - 2026": { reg: 124.99, switcher:{Supreme:150.99, Smart:150.99, Select:156.99, Sensible:146.99}, new:{Supreme:150.99, Smart:150.99, Select:156.99, Sensible:146.99}, upgradeTotal:211.99 }
+  };
+
+  // ---- UI WIRES ----
+  const elTxn = document.getElementById('txn');
+  const elPlan = document.getElementById('plan');
+  const elPlanWrap = document.getElementById('planWrap');
+  const elDevice = document.getElementById('device');
+  const elAcc = document.getElementById('acc');
+  const elCustomAccWrap = document.getElementById('customAccWrap');
+  const elCustomAcc = document.getElementById('customAcc');
+  const elProtect = document.getElementById('protect');
+  const elUpgradeFeeWrap = document.getElementById('upgradeFeeWrap');
+  const elUpgradeFee = document.getElementById('upgradeFee');
+  const elTotal = document.getElementById('total');
+  const elSubtitle = document.getElementById('subtitle');
+  const elBreakdown = document.getElementById('breakdown');
+  const elNote = document.getElementById('note');
+  const elCopyBtn = document.getElementById('copyBtn');
+
+  function money(n){ return (Math.round(n * 100) / 100).toLocaleString(undefined, {style:'currency', currency:'USD'}); }
+
+  function getAccessoriesAmount(){
+    const v = elAcc.value;
+    if (v === 'custom') return Number(elCustomAcc.value || 0);
+    if (v === '20_screen' || v === '20_block') return 20;
+    return Number(v || 0);
+  }
+
+  function getBase(){
+    const txn = elTxn.value;
+    const plan = elPlan.value;
+    const dev = elDevice.value;
+    const row = PRICES[dev];
+    if (!row) return { base: 0, label: "No device" };
+
+    if (txn === 'full') return { base: row.reg, label: "Reg price" };
+    if (txn === 'upgrade') return { base: row.upgradeTotal, label: "Upgrade total (sheet base)" };
+    if (txn === 'switcher') return { base: row.switcher[plan], label: `Port/Switcher (${plan})` };
+    if (txn === 'new') return { base: row.new[plan], label: `New Number (${plan})` };
+    return { base: 0, label: "Unknown" };
+  }
+
+  function recompute(){
+    const txn = elTxn.value;
+
+    // show/hide Plan for Full Price
+    elPlanWrap.style.display = (txn === 'full') ? 'none' : '';
+
+    // show Upgrade Fee only for Upgrade (you can change this if you want it for all)
     elUpgradeFeeWrap.style.display = (txn === 'upgrade') ? 'inline-flex' : 'none';
 
     // show custom accessories input
@@ -341,4 +648,5 @@
   init();
 </script>
 </body>
+
 </html>
