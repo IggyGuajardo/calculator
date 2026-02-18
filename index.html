@@ -227,7 +227,7 @@
       const txn = elTxn.value;
 
       // Plan hidden on Full Price only
-      elPlanWrap.style.display = (txn === 'full') ? 'none' : '';
+      elPlanWrap.style.display = (txn === 'full' || txn === 'upgrade') ? 'none' : '';
 
       // custom accessories input
       elCustomAccWrap.style.display = (elAcc.value === 'custom') ? '' : 'none';
